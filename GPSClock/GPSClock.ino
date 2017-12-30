@@ -39,6 +39,19 @@ void setup() {
   display.setCursor(0,0);
   display.println("Waiting for GPS...");
   display.display();
+  unsigned long start = millis();
+  while (millis() - start < 5000) 
+  {
+    if (ss.available())     
+    {
+      char c = ss.read();
+      if (gps.encode(c)) 
+      {
+        break;  // uncomment to print new data immediately!
+      }
+    }
+  }
+  updateTime(gps);
 }
 
 void loop() {
@@ -48,7 +61,7 @@ void loop() {
   display.clearDisplay();
   unsigned long start = millis();
   // Every 5 seconds we print an update
-  while (millis() - start < 5000) 
+  if(millis() - lastUpdate > 5000) 
   {
     if (ss.available()) 
     
@@ -70,6 +83,7 @@ void loop() {
     gpsdump(gps);
     Serial.println("-------------");
     Serial.println();
+    lastUpdate = millis();
   }
 
   if( now() != prevDisplay){
@@ -129,6 +143,17 @@ void gpsdump(TinyGPS &gps)
   gps.stats(&chars, &sentences, &failed);
   Serial.print("Stats: characters: "); Serial.print(chars); Serial.print(" sentences: ");
     Serial.print(sentences); Serial.print(" failed checksum: "); Serial.println(failed);
+}
+
+void updateTime(TinyGPS &gps) {
+  unsigned long age;
+  int yr;
+  byte mnth, dy, hr, minu, sec, hundredths;
+  gps.crack_datetime(&yr, &mnth, &dy, &hr, &minu, &sec, &hundredths, &age);
+  byte localHour = (hr >= 6) ? hr - 6 : hr + 18;
+  if(!(second() == sec && minute() == minu && hour() == localHour)) {
+    setTime(localHour, minu, sec, dy, mnth, yr);
+  }  
 }
 
 void printFloat(double number, int digits)
