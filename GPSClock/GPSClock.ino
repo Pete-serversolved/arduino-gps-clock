@@ -12,7 +12,7 @@ Adafruit_SSD1306 display(OLED_RESET);
 #error("Height incorrect, please fix Adafruit_SSD1306.h!");
 #endif
 
-SoftwareSerial ss(7, 11); // TX from module on D7 (RX unused)
+SoftwareSerial ss(8, 11); // TX from module on D7 (RX unused)
 TinyGPS gps;
 time_t prevDisplay = 0;
 boolean use12Hour = false;
