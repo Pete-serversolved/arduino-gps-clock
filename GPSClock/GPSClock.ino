@@ -40,15 +40,16 @@ void setup() {
   display.println("Waiting for GPS...");
   display.display();
   unsigned long start = millis();
-  while (ss.available())     
+  while (ss.available() && millis() - start < 15000)     
   {
     char c = ss.read();
+    //Serial.print(c);
     if (gps.encode(c)) 
     {
-      break;  // uncomment to print new data immediately!
+      updateTime(gps);
+      break;
     }
   }
-  updateTime(gps);
 }
 
 void loop() {
@@ -61,10 +62,9 @@ void loop() {
   if(millis() - lastUpdate > 5000) 
   {
     while (ss.available()) 
-    
     {
       char c = ss.read();
-      Serial.print(c);  // uncomment to see raw GPS data
+      //Serial.print(c);  // uncomment to see raw GPS data
       if (gps.encode(c)) 
       {
         newdata = true;
@@ -76,17 +76,20 @@ void loop() {
   if (newdata) 
   {
     updateTime(gps);
+/*
     Serial.println("Acquired Data");
     Serial.println("-------------");
     gpsdump(gps);
     Serial.println("-------------");
     Serial.println();
+*/    
   }
 
   if( now() != prevDisplay){
     prevDisplay = now();
     // TODO: send the time to the display
-    clockDisplay();
+    if(lastUpdate > 0)
+      clockDisplay();
   }
 }
 
@@ -117,10 +120,6 @@ void gpsdump(TinyGPS &gps)
     Serial.print(time);
   Serial.print(" Fix age: "); Serial.print(age); Serial.println("ms.");
   gps.crack_datetime(&yr, &mnth, &dy, &hr, &minu, &sec, &hundredths, &age);
-  byte localHour = (hr >= 6) ? hr - 6 : hr + 18;
-  if(!(second() == sec && minute() == minu && hour() == localHour)) {
-    setTime(localHour, minu, sec, dy, mnth, yr);
-  }
   Serial.print("Date: "); Serial.print(static_cast<int>(mnth)); Serial.print("/"); 
     Serial.print(static_cast<int>(dy)); Serial.print("/"); Serial.print(yr);
   Serial.print("  Time: "); Serial.print(static_cast<int>(hr-6));  Serial.print(":"); //Serial.print("UTC -06:00 Chicago");
@@ -148,11 +147,23 @@ void updateTime(TinyGPS &gps) {
   byte mnth, dy, hr, minu, sec, hundredths;
   gps.crack_datetime(&yr, &mnth, &dy, &hr, &minu, &sec, &hundredths, &age);
   byte localHour = (hr >= 6) ? hr - 6 : hr + 18;
-  if(!(second() == sec && minute() == minu && hour() == localHour)) {
-    setTime(localHour, minu, sec, dy, mnth, yr);
-    lastUpdate = millis();
+  if(!(minute() == minu && hour() == localHour)) {
     Serial.println();
     Serial.println("=== Updating time to match GPS ===");
+    Serial.print("Current: "); 
+    Serial.print(hour()); 
+    Serial.print(":"); 
+    if(minute() < 10)
+      Serial.print("0");
+    Serial.println(minute());
+    setTime(localHour, minu, sec, dy, mnth, yr);
+    lastUpdate = millis();
+    Serial.print("Updated: "); 
+    Serial.print(hour()); 
+    Serial.print(":"); 
+    if(minute() < 10)
+      Serial.print("0");
+    Serial.println(minute());
     Serial.println();
   }  
 }
