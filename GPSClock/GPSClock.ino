@@ -1,3 +1,24 @@
+/*
+ * OLED Clock that updates via GPS
+ * 
+ * Requirements:
+ *  - Arduino Uno board
+ *  - NEO-6M GPS Module
+ *  - SSD1306 I2C OLED Display - 128x32(https://www.adafruit.com/product/931)
+ *  - 5v / 3.3v level shifter
+ *  - 2x 200k resistors (optional)
+ *  - 2x LED (optional)
+ *  
+ * Wiring for Arduino Uno board:
+ *  - Arduino 5V to Vcc of OLED Display, HV of level shifter
+ *  - Arduino 3.3v to Vcc of GPS
+ *  - Arduino GND to GND of OLED, GPS, GND of both sides of level shifter
+ *  - Arduino D8 to GPS TX (through level shifter!)
+ *  - Arduino SCL to SCL of OLED
+ *  - Arduino SDA to SDA of OLED
+ *  - Arduino D9 to LED with 200k resistor to GND (optional)
+ *  - Arduino D10 to LED with 200k resistor to GND (optional)
+ */
 #include <Adafruit_SSD1306.h>
 #include <SoftwareSerial.h>
 #include <TinyGPS.h>
@@ -17,18 +38,21 @@ TinyGPS gps;
 time_t prevDisplay = 0;
 boolean use12Hour = false;
 unsigned long lastUpdate = 0;
+byte hroffset = -6;
 
-void gpsdump(TinyGPS &gps);
-void printFloat(double f, int digits = 2);
+// void gpsdump(TinyGPS &gps);
+// void printFloat(double f, int digits = 2);
 
 void setup() {
   Serial.begin(115200);
   ss.begin(9600);
   display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
   display.display();
-  
+  digitalWrite(9, HIGH);
+  digitalWrite(10, HIGH);
   delay(1000);
-
+  digitalWrite(9, LOW);
+  digitalWrite(10, LOW);
   Serial.println("uBlox Neo 6M");
   Serial.print("Testing TinyGPS library v. "); Serial.println(TinyGPS::library_version());
   Serial.println("by Mikal Hart");
@@ -40,16 +64,21 @@ void setup() {
   display.println("Waiting for GPS...");
   display.display();
   unsigned long start = millis();
-  while (ss.available() && millis() - start < 15000)     
+  digitalWrite(10, HIGH);
+  while (ss.available() && millis() - start < 60000)     
   {
+    digitalWrite(9, HIGH);
     char c = ss.read();
-    //Serial.print(c);
+    Serial.print(c);
     if (gps.encode(c)) 
     {
       updateTime(gps);
       break;
     }
+    digitalWrite(9, LOW);
   }
+  digitalWrite(9, LOW);
+  digitalWrite(10, LOW);
 }
 
 void loop() {
@@ -57,42 +86,42 @@ void loop() {
   display.setTextSize(2);
   display.setCursor(0,0);
   display.clearDisplay();
-  unsigned long start = millis();
   // Every 5 seconds we print an update
   if(millis() - lastUpdate > 5000) 
   {
     while (ss.available()) 
     {
       char c = ss.read();
-      //Serial.print(c);  // uncomment to see raw GPS data
+      Serial.print(c);  // uncomment to see raw GPS data
       if (gps.encode(c)) 
       {
-        newdata = true;
+        // newdata = true;
+        updateTime(gps);
         break;
       }
     }
   }
   
+/*
   if (newdata) 
   {
     updateTime(gps);
-/*
     Serial.println("Acquired Data");
     Serial.println("-------------");
     gpsdump(gps);
     Serial.println("-------------");
     Serial.println();
-*/    
   }
+*/    
 
   if( now() != prevDisplay){
     prevDisplay = now();
-    // TODO: send the time to the display
     if(lastUpdate > 0)
       clockDisplay();
   }
 }
 
+/*
 void gpsdump(TinyGPS &gps)
 {
   long lat, lon;
@@ -140,14 +169,17 @@ void gpsdump(TinyGPS &gps)
   Serial.print("Stats: characters: "); Serial.print(chars); Serial.print(" sentences: ");
     Serial.print(sentences); Serial.print(" failed checksum: "); Serial.println(failed);
 }
+*/
 
 void updateTime(TinyGPS &gps) {
+  digitalWrite(9, HIGH);
   unsigned long age;
   int yr;
   byte mnth, dy, hr, minu, sec, hundredths;
   gps.crack_datetime(&yr, &mnth, &dy, &hr, &minu, &sec, &hundredths, &age);
-  byte localHour = (hr >= 6) ? hr - 6 : hr + 18;
+  byte localHour = getLocalHour(hr);
   if(!(minute() == minu && hour() == localHour)) {
+    digitalWrite(10, HIGH);
     Serial.println();
     Serial.println("=== Updating time to match GPS ===");
     Serial.print("Current: "); 
@@ -165,9 +197,21 @@ void updateTime(TinyGPS &gps) {
       Serial.print("0");
     Serial.println(minute());
     Serial.println();
-  }  
+    digitalWrite(10, LOW);
+  }
+  digitalWrite(9, LOW);
 }
 
+byte getLocalHour(byte hr) {
+  byte adjust = hr + hroffset;
+  if(adjust < 0) 
+    return adjust+24;
+  else if(adjust > 23)
+    return adjust-24;
+  else
+    return adjust;  
+}
+/*
 void printFloat(double number, int digits)
 {
   // Handle negative numbers
@@ -202,7 +246,7 @@ void printFloat(double number, int digits)
     remainder -= toPrint;
   }
 }
-
+*/
 // Clock display of the time and date (Basic)
 void clockDisplay(){
   display.clearDisplay();
