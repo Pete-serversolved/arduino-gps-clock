@@ -52,6 +52,7 @@ void setup() {
   if (rtc.lostPower()) {
     display.println("Waiting for GPS...");
     display.display();
+    updateTime(gps);
   } else {
     prevDisplay = rtc.now().unixtime();
     clockDisplay();
@@ -61,8 +62,8 @@ void setup() {
 void loop() {
   bool newdata = false;
   unsigned long start = millis();
-  // Every 5 seconds we print an update
-  while (millis() - start < 5000) 
+  // Every second we print an update
+  while (millis() - start < 500) 
   {
     if (ss.available()) 
     
@@ -72,7 +73,7 @@ void loop() {
       if (gps.encode(c)) 
       {
         newdata = true;
-//        break;  // uncomment to print new data immediately!
+        break;  // uncomment to print new data immediately!
       }
     }
   }
@@ -82,6 +83,7 @@ void loop() {
     Serial.println("Acquired Data");
     Serial.println("-------------");
     gpsdump(gps);
+    updateTime(gps);
     Serial.println("-------------");
     Serial.println();
   }
@@ -121,13 +123,6 @@ void gpsdump(TinyGPS &gps)
     Serial.print(time);
   Serial.print(" Fix age: "); Serial.print(age); Serial.println("ms.");
   gps.crack_datetime(&yr, &mnth, &dy, &hr, &minu, &sec, &hundredths, &age);
-  byte localHour = (hr >= 6) ? hr - 6 : hr + 18;
-  DateTime now = rtc.now();
-  if(!(now.second() == sec && now.minute() == minu && now.hour() == localHour)) {
-    Serial.println("Updating real-time clock ...");
-    rtc.adjust(DateTime(yr, mnth, dy, localHour, minu, sec));
-    // setTime(localHour, minu, sec, dy, mnth, yr);
-  }
   Serial.print("Date: "); Serial.print(static_cast<int>(mnth)); Serial.print("/"); 
     Serial.print(static_cast<int>(dy)); Serial.print("/"); Serial.print(yr);
   Serial.print("  Time: "); Serial.print(static_cast<int>(hr-6));  Serial.print(":"); //Serial.print("UTC -06:00 Chicago");
@@ -147,6 +142,21 @@ void gpsdump(TinyGPS &gps)
   gps.stats(&chars, &sentences, &failed);
   Serial.print("Stats: characters: "); Serial.print(chars); Serial.print(" sentences: ");
     Serial.print(sentences); Serial.print(" failed checksum: "); Serial.println(failed);
+}
+
+void updateTime(TinyGPS &gps) {
+  unsigned long age;
+  int yr;
+  byte mnth, dy, hr, minu, sec, hundredths;
+  gps.crack_datetime(&yr, &mnth, &dy, &hr, &minu, &sec, &hundredths, &age);
+  byte localHour = (hr >= 6) ? hr - 6 : hr + 18;
+  DateTime now = rtc.now();
+  if(!(now.second() == sec && now.minute() == minu && now.hour() == localHour)) {
+    Serial.println("Updating real-time clock ...");
+    rtc.adjust(DateTime(yr, mnth, dy, localHour, minu, sec));
+  } else {
+    Serial.println("GPS Time matches real-time clock.");
+  }
 }
 
 void printFloat(double number, int digits)
