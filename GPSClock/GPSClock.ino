@@ -1,7 +1,8 @@
 #include <Adafruit_SSD1306.h>
 #include <SoftwareSerial.h>
 #include <TinyGPS.h>
-#include <TimeLib.h>
+#include <Wire.h>
+#include "RTClib.h"
 
 #define OLED_RESET 4
 Adafruit_SSD1306 display(OLED_RESET);
@@ -12,9 +13,11 @@ Adafruit_SSD1306 display(OLED_RESET);
 #error("Height incorrect, please fix Adafruit_SSD1306.h!");
 #endif
 
-SoftwareSerial ss(7, 11); // TX from module on D7 (RX unused)
+RTC_DS3231 rtc;
+
+SoftwareSerial ss(8, 11); // TX from module on D8 (RX unused)
 TinyGPS gps;
-time_t prevDisplay = 0;
+int prevDisplay = 0;
 boolean use12Hour = false;
 unsigned long lastUpdate = 0;
 
@@ -22,6 +25,9 @@ void gpsdump(TinyGPS &gps);
 void printFloat(double f, int digits = 2);
 
 void setup() {
+#ifndef ESP8266
+  while (!Serial); // for Leonardo/Micro/Zero
+#endif
   Serial.begin(115200);
   ss.begin(9600);
   display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
@@ -29,6 +35,10 @@ void setup() {
   
   delay(1000);
 
+  if (! rtc.begin()) {
+    Serial.println("Couldn't find RTC");
+    while (1);
+  }
   Serial.println("uBlox Neo 6M");
   Serial.print("Testing TinyGPS library v. "); Serial.println(TinyGPS::library_version());
   Serial.println("by Mikal Hart");
@@ -37,15 +47,17 @@ void setup() {
   display.setTextSize(1);
   display.setTextColor(WHITE);
   display.setCursor(0,0);
-  display.println("Waiting for GPS...");
-  display.display();
+  if (rtc.lostPower()) {
+    display.println("Waiting for GPS...");
+    display.display();
+  } else {
+    prevDisplay = rtc.now().unixtime();
+    clockDisplay();
+  }
 }
 
 void loop() {
   bool newdata = false;
-  display.setTextSize(2);
-  display.setCursor(0,0);
-  display.clearDisplay();
   unsigned long start = millis();
   // Every 5 seconds we print an update
   while (millis() - start < 5000) 
@@ -72,8 +84,9 @@ void loop() {
     Serial.println();
   }
 
-  if( now() != prevDisplay){
-    prevDisplay = now();
+  DateTime now = rtc.now();
+  if( now.unixtime() != prevDisplay){
+    prevDisplay = now.unixtime();
     // TODO: send the time to the display
     clockDisplay();
   }
@@ -107,8 +120,11 @@ void gpsdump(TinyGPS &gps)
   Serial.print(" Fix age: "); Serial.print(age); Serial.println("ms.");
   gps.crack_datetime(&yr, &mnth, &dy, &hr, &minu, &sec, &hundredths, &age);
   byte localHour = (hr >= 6) ? hr - 6 : hr + 18;
-  if(!(second() == sec && minute() == minu && hour() == localHour)) {
-    setTime(localHour, minu, sec, dy, mnth, yr);
+  DateTime now = rtc.now();
+  if(!(now.second() == sec && now.minute() == minu && now.hour() == localHour)) {
+    Serial.println("Updating real-time clock ...");
+    rtc.adjust(DateTime(yr, mnth, dy, localHour, minu, sec));
+    // setTime(localHour, minu, sec, dy, mnth, yr);
   }
   Serial.print("Date: "); Serial.print(static_cast<int>(mnth)); Serial.print("/"); 
     Serial.print(static_cast<int>(dy)); Serial.print("/"); Serial.print(yr);
@@ -168,24 +184,31 @@ void printFloat(double number, int digits)
 
 // Clock display of the time and date (Basic)
 void clockDisplay(){
+  display.setTextSize(2);
+  display.setCursor(0,0);
   display.clearDisplay();
-  if(use12Hour) {
+  DateTime now = rtc.now();
+/*  
+ if(use12Hour) {
     if(hourFormat12() < 10) {
       display.print(" ");
     }
     display.print(hourFormat12());
   } else {
+*/
     display.print("  ");
-    if(hour() < 10)
+    if(now.hour() < 10)
       display.print("0");
-    display.print(hour());
-  }
-  printDigits(minute());
-  printDigits(second());
+    display.print(now.hour());
+//  }
+  printDigits(now.minute());
+  printDigits(now.second());
+/*
   if(use12Hour) {
     display.print(" ");
     display.print(isAM() ? "a" : "p");
   }
+*/
 //  display.dim(dimDisplay);
   display.display();
 }
