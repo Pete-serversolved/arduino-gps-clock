@@ -18,11 +18,13 @@ RTC_DS3231 rtc;
 SoftwareSerial ss(8, 11); // TX from module on D8 (RX unused)
 TinyGPS gps;
 int prevDisplay = 0;
-boolean use12Hour = false;
+boolean use12Hour = true;
 unsigned long lastUpdate = 0;
 
 void gpsdump(TinyGPS &gps);
 void printFloat(double f, int digits = 2);
+byte to12hour(byte hour, bool &am);
+void printDigits(int digits);
 
 void setup() {
 #ifndef ESP8266
@@ -184,31 +186,32 @@ void printFloat(double number, int digits)
 
 // Clock display of the time and date (Basic)
 void clockDisplay(){
+  bool am;
+
   display.setTextSize(2);
   display.setCursor(0,0);
   display.clearDisplay();
   DateTime now = rtc.now();
-/*  
- if(use12Hour) {
-    if(hourFormat12() < 10) {
+
+  if(use12Hour) {
+  	byte hour12 = to12hour(now.hour(), am);
+    if(hour12 < 10) {
       display.print(" ");
     }
-    display.print(hourFormat12());
+    display.print(hour12);
   } else {
-*/
     display.print("  ");
     if(now.hour() < 10)
       display.print("0");
     display.print(now.hour());
-//  }
+  }
   printDigits(now.minute());
   printDigits(now.second());
-/*
+
   if(use12Hour) {
     display.print(" ");
-    display.print(isAM() ? "a" : "p");
+    display.print(am ? "a" : "p");
   }
-*/
 //  display.dim(dimDisplay);
   display.display();
 }
@@ -220,5 +223,19 @@ void printDigits(int digits){
     display.print('0');
   }
   display.print(digits);
+}
+
+byte to12hour(byte hour, bool &am) {
+	if(hour == 0) {
+		am = true;
+		return 12;
+	}
+	if(hour <= 12) {
+		am = true;
+		return hour;
+	} else {
+		am = false;
+		return hour - 12;
+	}
 }
 
