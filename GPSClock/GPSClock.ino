@@ -18,8 +18,11 @@ RTC_DS3231 rtc;
 SoftwareSerial ss(8, 11); // TX from module on D8 (RX unused)
 TinyGPS gps;
 int prevDisplay = 0;
-boolean use12Hour = true;
+boolean use12Hour = false;
 unsigned long lastUpdate = 0;
+unsigned int tzOffset = 0;
+boolean updateTZFromClock = false;
+boolean gpsAcquired = false;
 
 void gpsdump(TinyGPS &gps);
 void printFloat(double f, int digits = 2);
@@ -27,6 +30,9 @@ byte to12hour(byte hour, bool &am);
 void printDigits(int digits);
 
 void setup() {
+//  attachInterrupt(digitalPinToInterrupt(2), incOffset, RISING);
+//  attachInterrupt(digitalPinToInterrupt(3), decOffset, RISING);
+
 #ifndef ESP8266
   while (!Serial); // for Leonardo/Micro/Zero
 #endif
@@ -55,6 +61,7 @@ void setup() {
     updateTime(gps);
   } else {
     prevDisplay = rtc.now().unixtime();
+    updateTZFromClock = true;
     clockDisplay();
   }
 }
@@ -66,13 +73,15 @@ void loop() {
   while (millis() - start < 500) 
   {
     if (ss.available()) 
-    
     {
       char c = ss.read();
-      // Serial.print(c);  // uncomment to see raw GPS data
+      if(!gpsAcquired)
+        Serial.print(c);  // uncomment to see raw GPS data
+        
       if (gps.encode(c)) 
       {
         newdata = true;
+        gpsAcquired = true;
         break;  // uncomment to print new data immediately!
       }
     }
@@ -125,9 +134,9 @@ void gpsdump(TinyGPS &gps)
   gps.crack_datetime(&yr, &mnth, &dy, &hr, &minu, &sec, &hundredths, &age);
   Serial.print("Date: "); Serial.print(static_cast<int>(mnth)); Serial.print("/"); 
     Serial.print(static_cast<int>(dy)); Serial.print("/"); Serial.print(yr);
-  Serial.print("  Time: "); Serial.print(static_cast<int>(hr-6));  Serial.print(":"); //Serial.print("UTC -06:00 Chicago");
+  Serial.print("  Time: "); Serial.print(static_cast<int>(hr));  Serial.print(":"); //Serial.print("UTC -06:00 Chicago");
     Serial.print(static_cast<int>(minu)); Serial.print(":"); Serial.print(static_cast<int>(sec));
-    Serial.print("."); Serial.print(static_cast<int>(hundredths)); Serial.print(" UTC -06:00 Chicago");
+    Serial.print("."); Serial.print(static_cast<int>(hundredths)); Serial.print(" UTC");
   Serial.print("  Fix age: ");  Serial.print(age); Serial.println("ms.");
 
   Serial.print("Alt(cm): "); Serial.print(gps.altitude()); Serial.print(" Course(10^-2 deg): ");
@@ -149,13 +158,28 @@ void updateTime(TinyGPS &gps) {
   int yr;
   byte mnth, dy, hr, minu, sec, hundredths;
   gps.crack_datetime(&yr, &mnth, &dy, &hr, &minu, &sec, &hundredths, &age);
-  byte localHour = (hr >= 6) ? hr - 6 : hr + 18;
   DateTime now = rtc.now();
-  if(!(now.second() == sec && now.minute() == minu && now.hour() == localHour)) {
-    Serial.println("Updating real-time clock ...");
-    rtc.adjust(DateTime(yr, mnth, dy, localHour, minu, sec));
+  if(updateTZFromClock) {
+    unsigned int diff = (hr - now.hour()) % 24;
+    tzOffset = (diff > 12 ) ? (diff - 24) : ( (diff < -12) ? (diff + 24) : diff );
+    Serial.println("Time zone updated from real-time clock.");    
+    updateTZFromClock = false;
   } else {
-    Serial.println("GPS Time matches real-time clock.");
+    byte localHour = (hr + 24 - tzOffset) % 24;
+    Serial.print("RTC Hour: ");
+    Serial.print(now.hour());
+    Serial.print("; GPS Hour: ");
+    Serial.print(hr);
+    Serial.print("; Offset: ");
+    Serial.print(tzOffset);
+    Serial.print("; Local hour is now ");
+    Serial.println(localHour);
+    if(!(now.second() == sec && now.minute() == minu && now.hour() == hr)) {
+      Serial.println("Updating real-time clock ...");
+      rtc.adjust(DateTime(yr, mnth, dy, hr, minu, sec));
+    } else {
+      Serial.println("GPS Time matches real-time clock.");
+    }
   }
 }
 
@@ -247,5 +271,32 @@ byte to12hour(byte hour, bool &am) {
     am = false;
     return hour - 12;
   }
+}
+
+void incOffset() {
+  tzOffset++;
+  Serial.println("Incrementing TZ Offset");
+  if(tzOffset > 12) 
+    tzOffset = -12;
+  showTZOffset();
+}
+
+void decOffset() {
+  tzOffset--;
+  Serial.println("Decrementing TZ Offset");
+  if(tzOffset < -12) 
+    tzOffset = 12;
+  showTZOffset();
+}
+
+void showTZOffset() {
+  Serial.print("TZ Offset is now ");
+  Serial.println(tzOffset);
+  display.clearDisplay();
+  display.print(tzOffset);
+  display.print(":00");
+  display.display();
+  delay(3000);
+  clockDisplay();  
 }
 
