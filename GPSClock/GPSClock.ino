@@ -20,7 +20,9 @@ TinyGPS gps;
 int prevDisplay = 0;
 boolean use12Hour = false;
 unsigned long lastUpdate = 0;
-unsigned int tzOffset = 0;
+volatile byte tzOffset = 6;
+volatile boolean tzNegative = true;
+volatile boolean showTZAdjust = false;
 boolean updateTZFromClock = false;
 boolean gpsAcquired = false;
 
@@ -30,9 +32,6 @@ byte to12hour(byte hour, bool &am);
 void printDigits(int digits);
 
 void setup() {
-//  attachInterrupt(digitalPinToInterrupt(2), incOffset, RISING);
-//  attachInterrupt(digitalPinToInterrupt(3), decOffset, RISING);
-
 #ifndef ESP8266
   while (!Serial); // for Leonardo/Micro/Zero
 #endif
@@ -61,14 +60,22 @@ void setup() {
     updateTime(gps);
   } else {
     prevDisplay = rtc.now().unixtime();
-    updateTZFromClock = true;
+    updateTZFromClock = false;
     clockDisplay();
   }
+
+  attachInterrupt(0, incOffset, HIGH);
+  attachInterrupt(1, decOffset, HIGH);
+
 }
 
 void loop() {
   bool newdata = false;
   unsigned long start = millis();
+  if(showTZAdjust) {
+    showTZOffset();
+    showTZAdjust = false;
+  }
   // Every second we print an update
   while (millis() - start < 500) 
   {
@@ -91,7 +98,7 @@ void loop() {
   {
     Serial.println("Acquired Data");
     Serial.println("-------------");
-    gpsdump(gps);
+//    gpsdump(gps);
     updateTime(gps);
     Serial.println("-------------");
     Serial.println();
@@ -160,23 +167,25 @@ void updateTime(TinyGPS &gps) {
   gps.crack_datetime(&yr, &mnth, &dy, &hr, &minu, &sec, &hundredths, &age);
   DateTime now = rtc.now();
   if(updateTZFromClock) {
-    unsigned int diff = (hr - now.hour()) % 24;
+    int diff = (hr - now.hour()) % 24;
     tzOffset = (diff > 12 ) ? (diff - 24) : ( (diff < -12) ? (diff + 24) : diff );
     Serial.println("Time zone updated from real-time clock.");    
     updateTZFromClock = false;
   } else {
-    byte localHour = (hr + 24 - tzOffset) % 24;
+    byte localHour = (hr + 24 - 6) % 24;
     Serial.print("RTC Hour: ");
     Serial.print(now.hour());
     Serial.print("; GPS Hour: ");
     Serial.print(hr);
     Serial.print("; Offset: ");
-    Serial.print(tzOffset);
+    if(tzNegative)
+      Serial.print("-");
+    Serial.print(abs(tzOffset));
     Serial.print("; Local hour is now ");
     Serial.println(localHour);
-    if(!(now.second() == sec && now.minute() == minu && now.hour() == hr)) {
+    if(!(now.second() == sec && now.minute() == minu && now.hour() == localHour)) {
       Serial.println("Updating real-time clock ...");
-      rtc.adjust(DateTime(yr, mnth, dy, hr, minu, sec));
+      rtc.adjust(DateTime(yr, mnth, dy, localHour, minu, sec));
     } else {
       Serial.println("GPS Time matches real-time clock.");
     }
@@ -274,29 +283,52 @@ byte to12hour(byte hour, bool &am) {
 }
 
 void incOffset() {
-  tzOffset++;
-  Serial.println("Incrementing TZ Offset");
-  if(tzOffset > 12) 
-    tzOffset = -12;
-  showTZOffset();
+
+  if(tzOffset == 1 && tzNegative) {
+    tzOffset = 0;
+    tzNegative = false;
+  } else if(tzNegative) {
+    --tzOffset;
+  } else {
+    ++tzOffset;
+  }
+    
+  showTZAdjust = true;
 }
 
 void decOffset() {
-  tzOffset--;
-  Serial.println("Decrementing TZ Offset");
-  if(tzOffset < -12) 
-    tzOffset = 12;
-  showTZOffset();
+
+  if(tzOffset == 0) {
+    tzOffset = 1;
+    tzNegative = true;
+  } else if(tzNegative) {
+    ++tzOffset;
+  } else {
+    --tzOffset;
+  }
+    
+  showTZAdjust = true;
 }
+
 
 void showTZOffset() {
   Serial.print("TZ Offset is now ");
   Serial.println(tzOffset);
   display.clearDisplay();
+  display.setCursor(0,0);
+  display.print("  ");
+  if(tzNegative) {
+    display.print("-");
+  } else {
+    display.print(" ");
+  }
+  if(tzOffset < 10) {
+    display.print("0");
+  }
   display.print(tzOffset);
   display.print(":00");
   display.display();
-  delay(3000);
+  delay(1500);
   clockDisplay();  
 }
 
