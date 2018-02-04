@@ -38,6 +38,7 @@ void setup() {
   Serial.begin(115200);
   ss.begin(9600);
   display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
+  display.setRotation(2);
   display.display();
   
   delay(1000);
@@ -231,7 +232,7 @@ void printFloat(double number, int digits)
 void clockDisplay(){
   bool am;
 
-  display.setTextSize(2);
+  display.setTextSize(4);
   display.setCursor(0,0);
   display.clearDisplay();
   DateTime now = rtc.now();
@@ -243,13 +244,13 @@ void clockDisplay(){
     }
     display.print(hour12);
   } else {
-    display.print("  ");
+    //display.print("  ");
     if(now.hour() < 10)
       display.print("0");
     display.print(now.hour());
   }
   printDigits(now.minute());
-  printDigits(now.second());
+  //printDigits(now.second());
 
   if(use12Hour) {
     display.print(" ");
