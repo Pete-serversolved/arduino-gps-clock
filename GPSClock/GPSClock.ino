@@ -20,7 +20,7 @@ TinyGPS gps;
 int prevDisplay = 0;
 boolean use12Hour = false;
 unsigned long lastUpdate = 0;
-volatile byte tzOffset = 6;
+volatile byte tzOffset = 5;
 volatile boolean tzNegative = true;
 volatile boolean showTZAdjust = false;
 boolean updateTZFromClock = false;
@@ -173,7 +173,7 @@ void updateTime(TinyGPS &gps) {
     Serial.println("Time zone updated from real-time clock.");    
     updateTZFromClock = false;
   } else {
-    byte localHour = (hr + 24 - 6) % 24;
+    byte localHour = (hr + 24 - tzOffset) % 24;
     Serial.print("RTC Hour: ");
     Serial.print(now.hour());
     Serial.print("; GPS Hour: ");
