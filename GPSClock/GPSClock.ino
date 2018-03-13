@@ -18,9 +18,11 @@ RTC_DS3231 rtc;
 SoftwareSerial ss(8, 11); // TX from module on D8 (RX unused)
 TinyGPS gps;
 int prevDisplay = 0;
+byte dstPin = 9;
 boolean use12Hour = false;
+boolean isDST = false;
 unsigned long lastUpdate = 0;
-volatile byte tzOffset = 5;
+volatile byte tzOffset = 6;
 volatile boolean tzNegative = true;
 volatile boolean showTZAdjust = false;
 boolean updateTZFromClock = false;
@@ -35,6 +37,8 @@ void setup() {
 #ifndef ESP8266
   while (!Serial); // for Leonardo/Micro/Zero
 #endif
+  pinMode(dstPin, INPUT_PULLUP);
+  isDST = digitalRead(dstPin);
   Serial.begin(115200);
   ss.begin(9600);
   display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
@@ -64,19 +68,11 @@ void setup() {
     updateTZFromClock = false;
     clockDisplay();
   }
-
-  attachInterrupt(0, incOffset, HIGH);
-  attachInterrupt(1, decOffset, HIGH);
-
 }
 
 void loop() {
   bool newdata = false;
   unsigned long start = millis();
-  if(showTZAdjust) {
-    showTZOffset();
-    showTZAdjust = false;
-  }
   // Every second we print an update
   while (millis() - start < 500) 
   {
@@ -165,6 +161,7 @@ void updateTime(TinyGPS &gps) {
   unsigned long age;
   int yr;
   byte mnth, dy, hr, minu, sec, hundredths;
+  isDST = digitalRead(dstPin);
   gps.crack_datetime(&yr, &mnth, &dy, &hr, &minu, &sec, &hundredths, &age);
   DateTime now = rtc.now();
   if(updateTZFromClock) {
@@ -173,7 +170,7 @@ void updateTime(TinyGPS &gps) {
     Serial.println("Time zone updated from real-time clock.");    
     updateTZFromClock = false;
   } else {
-    byte localHour = (hr + 24 - tzOffset) % 24;
+    byte localHour = (hr + 24 - (tzOffset - (isDST ? 1 : 0))) % 24;
     Serial.print("RTC Hour: ");
     Serial.print(now.hour());
     Serial.print("; GPS Hour: ");
@@ -181,7 +178,7 @@ void updateTime(TinyGPS &gps) {
     Serial.print("; Offset: ");
     if(tzNegative)
       Serial.print("-");
-    Serial.print(abs(tzOffset));
+    Serial.print(abs(tzOffset - (isDST ? 1 : 0)));
     Serial.print("; Local hour is now ");
     Serial.println(localHour);
     if(!(now.second() == sec && now.minute() == minu && now.hour() == localHour)) {
@@ -229,6 +226,7 @@ void printFloat(double number, int digits)
 }
 
 // Clock display of the time and date (Basic)
+// reads directly from RTC and displays
 void clockDisplay(){
   bool am;
 
@@ -281,55 +279,5 @@ byte to12hour(byte hour, bool &am) {
     am = false;
     return hour - 12;
   }
-}
-
-void incOffset() {
-
-  if(tzOffset == 1 && tzNegative) {
-    tzOffset = 0;
-    tzNegative = false;
-  } else if(tzNegative) {
-    --tzOffset;
-  } else {
-    ++tzOffset;
-  }
-    
-  showTZAdjust = true;
-}
-
-void decOffset() {
-
-  if(tzOffset == 0) {
-    tzOffset = 1;
-    tzNegative = true;
-  } else if(tzNegative) {
-    ++tzOffset;
-  } else {
-    --tzOffset;
-  }
-    
-  showTZAdjust = true;
-}
-
-
-void showTZOffset() {
-  Serial.print("TZ Offset is now ");
-  Serial.println(tzOffset);
-  display.clearDisplay();
-  display.setCursor(0,0);
-  display.print("  ");
-  if(tzNegative) {
-    display.print("-");
-  } else {
-    display.print(" ");
-  }
-  if(tzOffset < 10) {
-    display.print("0");
-  }
-  display.print(tzOffset);
-  display.print(":00");
-  display.display();
-  delay(1500);
-  clockDisplay();  
 }
 
