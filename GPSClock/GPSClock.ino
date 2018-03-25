@@ -42,7 +42,7 @@ void setup() {
   Serial.begin(115200);
   ss.begin(9600);
   display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
-  display.setRotation(2);
+//  display.setRotation(2);
   display.display();
   
   delay(1000);
