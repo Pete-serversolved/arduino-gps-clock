@@ -6,26 +6,20 @@
 
 #define OLED_RESET 4
 Adafruit_SSD1306 display(OLED_RESET);
-
-#define DIM_THRESHOLD 900
-
 #if (SSD1306_LCDHEIGHT != 32)
 #error("Height incorrect, please fix Adafruit_SSD1306.h!");
 #endif
 
 RTC_DS3231 rtc;
-
 SoftwareSerial ss(8, 11); // TX from module on D8 (RX unused)
 TinyGPS gps;
+
 int prevDisplay = 0;
 byte dstPin = 9;
 boolean use12Hour = false;
 boolean isDST = false;
 unsigned long lastUpdate = 0;
 volatile byte tzOffset = 6;
-volatile boolean tzNegative = true;
-volatile boolean showTZAdjust = false;
-boolean updateTZFromClock = false;
 boolean gpsAcquired = false;
 
 byte to12hour(byte hour, bool &am);
@@ -40,9 +34,7 @@ void setup() {
   Serial.begin(115200);
   ss.begin(9600);
   display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
-//  display.setRotation(2);
   display.display();
-  
   delay(1000);
 
   if (! rtc.begin()) {
@@ -63,7 +55,6 @@ void setup() {
     updateTime(gps);
   } else {
     prevDisplay = rtc.now().unixtime();
-    updateTZFromClock = false;
     clockDisplay();
   }
 }
@@ -72,16 +63,13 @@ void loop() {
   bool newdata = false;
   unsigned long loopStart = millis();
   // Every second we print an update
-  while (millis() - loopStart < 500) 
-  {
-    if (ss.available()) 
-    {
+  while (millis() - loopStart < 500) {
+    if (ss.available()) {
       char c = ss.read();
       if(!gpsAcquired)
-        Serial.print(c);  // uncomment to see raw GPS data
+        Serial.print(c);  // See raw GPS data until it's recognized
         
-      if (gps.encode(c)) 
-      {
+      if (gps.encode(c)) {
         newdata = true;
         gpsAcquired = true;
         break;  // uncomment to print new data immediately!
@@ -89,8 +77,7 @@ void loop() {
     }
   }
   
-  if (newdata) 
-  {
+  if (newdata) {
     Serial.println("Acquired Data");
     Serial.println("-------------");
     updateTime(gps);
@@ -112,29 +99,21 @@ void updateTime(TinyGPS &gps) {
   isDST = digitalRead(dstPin);
   gps.crack_datetime(&yr, &mnth, &dy, &hr, &minu, &sec, &hundredths, &age);
   DateTime now = rtc.now();
-  if(updateTZFromClock) {
-    int diff = (hr - now.hour()) % 24;
-    tzOffset = (diff > 12 ) ? (diff - 24) : ( (diff < -12) ? (diff + 24) : diff );
-    Serial.println("Time zone updated from real-time clock.");    
-    updateTZFromClock = false;
+  byte localHour = (hr + 24 - (tzOffset - (isDST ? 1 : 0))) % 24;
+  Serial.print("RTC Hour: ");
+  Serial.print(now.hour());
+  Serial.print("; GPS Hour: ");
+  Serial.print(hr);
+  Serial.print("; Offset: ");
+  Serial.print("-");
+  Serial.print(abs(tzOffset - (isDST ? 1 : 0)));
+  Serial.print("; Local hour is now ");
+  Serial.println(localHour);
+  if(!(now.second() == sec && now.minute() == minu && now.hour() == localHour)) {
+    Serial.println("Updating real-time clock ...");
+    rtc.adjust(DateTime(yr, mnth, dy, localHour, minu, sec));
   } else {
-    byte localHour = (hr + 24 - (tzOffset - (isDST ? 1 : 0))) % 24;
-    Serial.print("RTC Hour: ");
-    Serial.print(now.hour());
-    Serial.print("; GPS Hour: ");
-    Serial.print(hr);
-    Serial.print("; Offset: ");
-    if(tzNegative)
-      Serial.print("-");
-    Serial.print(abs(tzOffset - (isDST ? 1 : 0)));
-    Serial.print("; Local hour is now ");
-    Serial.println(localHour);
-    if(!(now.second() == sec && now.minute() == minu && now.hour() == localHour)) {
-      Serial.println("Updating real-time clock ...");
-      rtc.adjust(DateTime(yr, mnth, dy, localHour, minu, sec));
-    } else {
-      Serial.println("GPS Time matches real-time clock.");
-    }
+    Serial.println("GPS Time matches real-time clock.");
   }
 }
 
@@ -155,29 +134,22 @@ void clockDisplay(){
     }
     display.print(hour12);
   } else {
-    //display.print("  ");
-    if(now.hour() < 10)
+    if(now.hour() < 10) {
       display.print("0");
+    }
     display.print(now.hour());
   }
-  printDigits(now.minute());
-  //printDigits(now.second());
+  display.print(":");
+  if(now.minute() < 10) {
+    display.print('0');
+  }
+  display.print(now.minute());
 
   if(use12Hour) {
     display.print(" ");
     display.print(am ? "a" : "p");
   }
-//  display.dim(dimDisplay);
   display.display();
-}
-
-// Utility function for clock display: prints preceding colon and leading 0
-void printDigits(int digits){
-  display.print(":");
-  if(digits < 10) {
-    display.print('0');
-  }
-  display.print(digits);
 }
 
 byte to12hour(byte hour, bool &am) {

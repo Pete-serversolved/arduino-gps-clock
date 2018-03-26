@@ -4,6 +4,12 @@ GPS Clock
 Arduino sketch to pull the time from GPS satelllites. The GPS unit can take
 about 5 minutes to aquire satellites, so it's backed by a real-time clock. 
 
+Currently, the time zone offset is hard-coded (-6).  It is also DST by default;
+ground D9 to return to standard time.
+
+RTC, GPS, and OLED run at 3.3v. A level-shifter is used to raise the signals
+to 5v for the Arduino.
+
 Hardware Requirements
 ---
 
