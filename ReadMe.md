@@ -22,5 +22,5 @@ Hardware Requirements
  - SPST latch button (for DST switch)
 
 ![Electrical Diagram](https://byron-supertech.visualstudio.com/ef56f05e-3922-43c2-ba28-69bc7d33c53b/_api/_versioncontrol/itemContent?repositoryId=392eab30-28de-4788-9596-0595671727a2&path=%2Fdiagrams%2FGPS-RTC-Clock-nano.png&version=GBmaster&contentOnly=true&__v=5 "GPS Clock diagram")
-![Clock](https://byron-supertech.visualstudio.com/ef56f05e-3922-43c2-ba28-69bc7d33c53b/_api/_versioncontrol/itemContent?repositoryId=392eab30-28de-4788-9596-0595671727a2&path=%2Fimages%2F20180325_133028.jpg&version=GBmaster&contentOnly=true&__v=5)
+![Clock](https://byron-supertech.visualstudio.com/ef56f05e-3922-43c2-ba28-69bc7d33c53b/_api/_versioncontrol/itemContent?repositoryId=392eab30-28de-4788-9596-0595671727a2&path=%2Fimages%2F20180325_133028.jpg&version=GBmaster&contentOnly=true&__v=5 "Clock mounted on circuit board")
 [![License: CC BY-SA 4.0](https://licensebuttons.net/l/by-sa/4.0/80x15.png)](https://creativecommons.org/licenses/by-sa/4.0/)
