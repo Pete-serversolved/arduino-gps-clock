@@ -7,11 +7,14 @@ about 5 minutes to aquire satellites, so it's backed by a real-time clock.
 Hardware Requirements
 ---
 
- - [Arduino Uno board](https://www.arduino.cc/en/Main/arduinoBoardUno/)
+ - [Arduino Nano board](https://www.arduino.cc/en/Main/ArduinoBoardNano)
  - [SSD1306 I2C OLED Display - 128x32](https://www.adafruit.com/product/931)
  - [NEO-6M GPS Module](https://www.u-blox.com/en/product/neo-6-series)
  - [4-Channel Level Shifter](https://www.adafruit.com/product/757)
  - [DS3231 I2C Real-Time Clock](https://learn.adafruit.com/adafruit-ds3231-precision-rtc-breakout/overview)
- - *more soon*
+ - ~22 µF electrolytic capacitor, ~10 pF ceramic capacitor (line filter)
+ - SPST latch button (for DST switch)
+
+![Electrical Diagram](https://byron-supertech.visualstudio.com/ef56f05e-3922-43c2-ba28-69bc7d33c53b/_api/_versioncontrol/itemContent?repositoryId=392eab30-28de-4788-9596-0595671727a2&path=%2Fdiagrams%2FGPS-RTC-Clock-nano.png&version=GBmaster&contentOnly=true&__v=5 "GPS Clock diagram")
 
 [![License: CC BY-SA 4.0](https://licensebuttons.net/l/by-sa/4.0/80x15.png)](https://creativecommons.org/licenses/by-sa/4.0/)
