@@ -21,6 +21,6 @@ Hardware Requirements
  - ~22 µF electrolytic capacitor, ~10 pF ceramic capacitor (line filter)
  - SPST latch button (for DST switch)
 
-![Electrical Diagram](https://github.com/Pete-serversolved/arduino-gps-clock/tree/master/diagrams/GPS-RTC-Clock-nano.png "GPS Clock diagram")
-![Clock](https://github.com/Pete-serversolved/arduino-gps-clock/tree/master/images/20180325_133028.jpg "Clock mounted on circuit board")
+![Electrical Diagram](https://raw.githubusercontent.com/Pete-serversolved/arduino-gps-clock/master/diagrams/GPS-RTC-Clock-nano.png "GPS Clock diagram")
+![Clock](https://raw.githubusercontent.com/Pete-serversolved/arduino-gps-clock/master/images/20180325_133028.jpg "Clock mounted on circuit board")
 [![License: CC BY-SA 4.0](https://licensebuttons.net/l/by-sa/4.0/80x15.png)](https://creativecommons.org/licenses/by-sa/4.0/)
